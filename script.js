@@ -97,17 +97,31 @@ const greetings = [
 let greetingIndex = 0;
 let charIndex = 0;
 let isDeleting = false;
+let isWaiting = false;
 
 function typeGreeting() {
+    if (!typingText) return;
+    
+    if (isWaiting) {
+        isWaiting = false;
+        setTimeout(typeGreeting, 500);
+        return;
+    }
+    
     const currentGreeting = greetings[greetingIndex];
     
-    if (isDeleting) {
-        typingText.textContent = currentGreeting.substring(0, charIndex - 1);
-        charIndex--;
-    } else {
-        typingText.textContent = currentGreeting.substring(0, charIndex + 1);
-        charIndex++;
-    }
+    // requestAnimationFrameでDOM操作を最適化
+    requestAnimationFrame(() => {
+        if (isDeleting) {
+            const newText = currentGreeting.substring(0, charIndex - 1);
+            typingText.textContent = newText;
+            charIndex--;
+        } else {
+            const newText = currentGreeting.substring(0, charIndex + 1);
+            typingText.textContent = newText;
+            charIndex++;
+        }
+    });
     
     let typeSpeed = isDeleting ? 50 : 100;
     
@@ -117,7 +131,8 @@ function typeGreeting() {
     } else if (isDeleting && charIndex === 0) {
         isDeleting = false;
         greetingIndex = (greetingIndex + 1) % greetings.length;
-        typeSpeed = 500;
+        isWaiting = true;
+        typeSpeed = 300;
     }
     
     setTimeout(typeGreeting, typeSpeed);
@@ -498,6 +513,70 @@ window.addEventListener('resize', () => {
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
+    // Mobile device detection and optimization
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    
+    if (isMobile) {
+        document.body.classList.add('mobile-device');
+        
+        // Reduce animations on mobile for better performance
+        const style = document.createElement('style');
+        style.textContent = `
+            @media (max-width: 768px) {
+                *, *::before, *::after {
+                    animation-duration: 0.5s !important;
+                    animation-delay: 0s !important;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // Disable cursor effects on mobile
+        const cursorEffect = document.querySelector('.cursor-effect');
+        if (cursorEffect) {
+            cursorEffect.style.display = 'none';
+        }
+    }
+    
+    if (isIOS) {
+        document.body.classList.add('ios-device');
+        
+        // iOS specific optimizations
+        document.addEventListener('touchstart', () => {}, { passive: true });
+        
+        // Prevent iOS zoom on double tap
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', (event) => {
+            const now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+    }
+    
+    // Optimize for high DPI screens
+    if (window.devicePixelRatio > 1) {
+        document.body.classList.add('high-dpi');
+    }
+    
+    // Optimize scroll performance on mobile
+    if (isMobile) {
+        let ticking = false;
+        const optimizedScroll = () => {
+            if (!ticking) {
+                requestAnimationFrame(() => {
+                    updateActiveNavLink();
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        };
+        
+        window.addEventListener('scroll', optimizedScroll, { passive: true });
+    }
+    
     // Start loading animation
     updateLoading();
     
